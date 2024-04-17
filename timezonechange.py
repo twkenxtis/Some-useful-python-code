@@ -1,49 +1,44 @@
 from datetime import datetime  # 導入 datetime 模組中的 datetime 類
 import pytz  # 導入 pytz 模組
 
-
 class TimeZoneConverter:
-    def __init__(get, from_tz, to_tz):
-        # 初始化方法，設置時區轉換器的源時區和目標時區
+    def __init__(self, from_tz, to_tz):
 
-        get.from_tz = pytz.timezone(from_tz)
-        get.to_tz = pytz.timezone(to_tz)
+        self.from_tz = pytz.timezone(from_tz)
+        self.to_tz = pytz.timezone(to_tz)
 
-    def convert_time(
-        set, time_str, format="%a, %d %b %Y %H:%M:%S %Z", output_format="%y%m%d %H:%M"
+    def convert_time_gmt_to_utc(
+        self, time_str, format="%a, %d %b %Y %H:%M:%S %Z", output_format="%y%m%d %H:%M"
     ):
-        # 時間轉換方法，將給定時區的時間字符串轉換為另一個時區的指定格式的時間字符串
+        # A time conversion method that converts a time string in a given time zone to a time string in a specified format in another time zone.
 
-        time_obj = datetime.strptime(time_str, format)  # 解析時間字符串為 datetime 對象
-        time_obj_from_tz = set.from_tz.localize(time_obj)  # 將時間對象添加源時區信息
+        time_obj = datetime.strptime(
+            time_str, format
+        )  # Parsing a time string into a datetime object
+        time_obj_from_tz = self.from_tz.localize(
+            time_obj
+        )  # Add source time zone information to the time object
         time_obj_to_tz = time_obj_from_tz.astimezone(
-            set.to_tz
-        )  # 轉換為目標時區的時間對象
+            self.to_tz
+        )  # Convert the time object to the target time zone.
         return time_obj_to_tz.strftime(
             output_format
-        )  # 格式化時間對象為字符串，返回轉換後的時間字符串
+        )  # Format the time object as a string and return the converted time string.
 
-
-class GMTtoUTC8:
-    def __init__(format, from_tz, to_tz):
-        # 初始化方法，設置源時區和目標時區
-
-        format.converter = TimeZoneConverter(from_tz, to_tz)  # 創建時區轉換器
-
-    def convert_time(
-        replace, time_str, format="%a, %d %b %Y %H:%M:%S %Z", output_format="%y%m%d %H:%M"
+    def format_time_slice(
+        self, time_str, format="%a, %d %b %Y %H:%M:%S %Z", output_format="%y%m%d %H:%M"
     ):
-        # 時間轉換方法，將給定的 GMT 時區時間字符串轉換為 UTC+8 時區的指定格式時間字符串
+        # Time conversion method to convert a given GMT time string to a time string in a specified format in the UTC+8 time zone.
 
-        return replace.converter.convert_time(
+        return self.convert_time_gmt_to_utc(
             time_str, format, output_format
-        )  # 調用時區轉換器進行轉換
+        )  # Call the time zone converter for conversion
 
 
 class System_Time:
     @staticmethod
     def format_current_time(format_string="%m/%d %H:%M:%S"):
-        # 靜態方法，獲取當前時間並格式化為指定格式的字符串
+        # Static method, get the current time and format it as a string in the specified format.
 
         now = datetime.now()
         return now.strftime(format_string)
@@ -55,14 +50,14 @@ class System_Time:
 # Sat, 13 Apr 2024 16:09:30 GMT
 # Sat, 13 Apr 2024 17:10:04 GMT
 
-# user_input_time = input("請輸入您的 GMT 時間：\n")
+user_input_time = input("請輸入您的 GMT 時間：\n")
 # 創建 GMTtoUTC8 實例
 
 
-converter = GMTtoUTC8("GMT", "Asia/Taipei")
+converter = TimeZoneConverter("GMT", "Asia/Taipei")
 # 轉換時間
 
-# published_tw = converter.convert_time(user_input_time)
+published_tw = converter.convert_time_gmt_to_utc(user_input_time)
 # 獲取當前時間
 
 
@@ -70,7 +65,7 @@ System_current_Time = System_Time.format_current_time()
 
 # 輸出結果
 
-# print(f"\nGMTtoUTC8 轉換後的時間為：", published_tw)
+print(f"\nGMTtoUTC8 轉換後的時間為：", published_tw)
 
 print(
     f"系統當前時間為: \033[90m{System_Time.format_current_time()}\033[0m"
