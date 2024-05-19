@@ -1,68 +1,64 @@
 import asyncio
+import aiofiles
 import os
 import pickle
-from concurrent.futures import ThreadPoolExecutor
-from typing import List, Tuple
 
-# orjson is used under the MIT License
-# Copyright (c) 2024 Delgan
+from aiocache import cached, Cache
+# aiocache - BSD 3-Clause License
+# Copyright (c) 2016, Manuel Miranda de Cid
 # For more details, see the LICENSE file included with the distribution
 from loguru import logger
+# loguru is used under the MIT License
+# Copyright (c) 2024 Delgan
+# For more details, see the LICENSE file included with the distribution
 
 
-class MarkDownUrl:
+# 不使用class 加快運作速度
+def markdown_urls(url_string):
+    return " ".join(
+        [f"[{index+1}]({url})" for index,
+            url in enumerate(url_string.split(" "))]
+    )
 
-    def __init__(self, url_string: str) -> None:
-        self.url_string = url_string
 
-    # 定義一個異步並行方法裝飾器
-    def async_parallel(self, func):
-        # 包裝器函數，接收一個函數參數列表
-        async def wrapper(args):
-            # 使用ThreadPoolExecutor來創建一個執行者
-            with ThreadPoolExecutor() as executor:
-                # 使用asyncio.gather來並行執行多個異步任務
-                return await asyncio.gather(
-                    *[
-                        # 將每個函數參數列表中的元素作為參數執行func函數
-                        asyncio.get_running_loop().run_in_executor(
-                            executor, func, *any_arg
-                        )
-                        for any_arg in args
-                    ]
-                )
+class PickleLoader:
 
-        return wrapper
-
-    # 靜態方法，用於格式化單個URL為Markdown連結格式
     @staticmethod
-    def format_single_url(num: int, url: str) -> Tuple[int, str]:
-        try:
-            # 嘗試將URL格式化為Markdown連結，並返回其編號和格式化後的URL
-            return num, f"[{num+1}]({url})"
-        except Exception as e:
-            raise ValueError(f"Error formatting URL at position {num}: {e}")
+    @cached(ttl=1200, cache=Cache.MEMORY)
+    async def load_pickle_dict(md5: str | None = None) -> str:
+        pkl_file = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..",
+                         "assets", "Twitter_dict.pkl")
+        )
+        if not os.path.isfile(pkl_file):
+            logger.error(f"pkl_file: {pkl_file} 文件不存在")
+            raise FileNotFoundError(f"pkl_file: {pkl_file} 文件不存在")
 
-    # 異步方法，用於格式化整個URL字串為完整Markdown連結
-    def format_urls(self) -> str:
-        # 定義一個異步函數來執行格式化操作
-        async def run_formatting(list_urls: List[str]) -> str:
-            # 使用排序和列表推導式來組合所有格式化後的URL
-            return ' '.join([url for _, url in sorted(await self.async_parallel(self.format_single_url)([(num, url) for num, url in enumerate(list_urls)]))])
+        async with aiofiles.open(pkl_file, "rb") as pkl:
+            pkl_data = pickle.loads(await pkl.read(), fix_imports=True)
 
-        if not self.url_string.split(" "):
-            raise ValueError("URL string is empty or not properly formatted.")
-        # 執行異步函數並返回結果
-        return asyncio.run(run_formatting(self.url_string.split(" ")))
+        value = pkl_data.get(md5)
+        if value is not None:
+            return value[6]
+
+        logger.error("MD5 不正確!，字典中沒有此MD5")
+        raise ValueError("MD5 not found")
 
 
 if __name__ == "__main__":
 
-  # 示例用法
-  url_string = "http://example1.com http://example2.com http://example3.com"
-  formatter = MarkDownUrl(url_string)
-  try:
-      formatted_urls = formatter.format_urls()
-      print(formatted_urls)
-  except ValueError as e:
-      logger.warning(e)
+    # 避免競爭條件
+    async def run_PickleLoader():
+        md5 = '8b384f75bedf6d97fdf3103375dff44c'
+        return await PickleLoader.load_pickle_dict(md5)
+
+    # asycio 只能啟動一個異步程式，剩下丟給函式處理
+    tweet_image_urls = asyncio.run(
+        run_PickleLoader()
+    )  # 輸出字典中所有的 Tweet image urls
+#
+#
+#
+    # 放到Markdown計算 返回 str -> Markdown過的Url給Discord
+    markdown = markdown_urls(tweet_image_urls)
+    print(markdown)
